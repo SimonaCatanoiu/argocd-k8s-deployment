@@ -2,10 +2,11 @@
 RELEASE_NAME ?= argo-cd
 NAMESPACE ?= argocd
 
-# Values file
-VALUES_FILE ?= values.yaml
-# Chart path
-CHART_PATH ?= .
+VALUES_FILE ?= chart/values.yaml
+CHART_PATH ?= chart
+
+CONTAINER_RUNNER ?= docker
+WORKDIR ?= $(shell pwd)
 
 # Default target
 .PHONY: help
@@ -17,6 +18,9 @@ help:
 	@echo "  make deps           - Update Helm chart dependencies"
 	@echo "  make lint           - Lint the Helm chart"
 	@echo "  make template       - Render Helm templates locally"
+	@echo "  make yamllint       - Lint YAML files inside container"
+	@echo "  make yamlfix        - Format YAML files inside container"
+	@echo "  make helm-docs      - Generate Helm docs inside container"
 
 .PHONY: deps
 deps:
@@ -45,3 +49,18 @@ lint:
 .PHONY: template
 template:
 	helm template $(RELEASE_NAME) $(CHART_PATH) -f $(VALUES_FILE)
+
+.PHONY: yamllint
+yamllint:
+	@echo "Running yamllint container..."
+	$(CONTAINER_RUNNER) run --rm -v $(WORKDIR):/workdir -w /workdir cytopia/yamllint:latest .
+
+.PHONY: yamlfix
+yamlfix:
+	@echo "Running yamlfix container..."
+	$(CONTAINER_RUNNER) run --rm -v $(WORKDIR):/workdir -w /workdir orhun/yamlfix:latest .
+
+.PHONY: helm-docs
+helm-docs:
+	@echo "Running helm-docs container..."
+	$(CONTAINER_RUNNER) run --rm -v $(WORKDIR)/chart:/helm-chart -w /helm-chart quay.io/helmdocs/helm-docs:latest
