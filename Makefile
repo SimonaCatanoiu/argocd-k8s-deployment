@@ -15,6 +15,7 @@ help:
 	@echo "  make install        - Install Argo CD in the cluster"
 	@echo "  make upgrade        - Upgrade Argo CD release"
 	@echo "  make uninstall      - Uninstall Argo CD release"
+	@echo "  make uninstall-full - Uninstall Argo CD release and delete CRDs"
 	@echo "  make deps           - Update Helm chart dependencies"
 	@echo "  make lint           - Lint the Helm chart"
 	@echo "  make template       - Render Helm templates locally"
@@ -41,6 +42,9 @@ upgrade: deps
 .PHONY: uninstall
 uninstall:
 	helm uninstall $(RELEASE_NAME) --namespace $(NAMESPACE)
+
+uninstall-full: uninstall
+	kubectl delete crd applications.argoproj.io applicationsets.argoproj.io appprojects.argoproj.io || true
 
 .PHONY: lint
 lint:
