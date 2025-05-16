@@ -7,8 +7,12 @@ CHART_PATH ?= chart
 
 CONTAINER_RUNNER ?= docker
 WORKDIR ?= $(shell pwd)
+UID := $(shell id -u)
+GID := $(shell id -g)
 
-# Default target
+DOCKER_RUN_BASE := $(CONTAINER_RUNNER) run --rm -v $(WORKDIR):/workdir -w /workdir -u $(UID):$(GID)
+DOCKER_RUN_HELM_DOCS := $(CONTAINER_RUNNER) run --rm -v $(WORKDIR)/chart:/helm-chart -w /helm-chart -u $(UID):$(GID)
+
 .PHONY: help
 help:
 	@echo "Usage:"
@@ -22,6 +26,8 @@ help:
 	@echo "  make yamllint       - Lint YAML files inside container"
 	@echo "  make yamlfix        - Format YAML files inside container"
 	@echo "  make helm-docs      - Generate Helm docs inside container"
+
+## -------------------- Helm Chart Management --------------------
 
 .PHONY: deps
 deps:
@@ -43,28 +49,36 @@ upgrade: deps
 uninstall:
 	helm uninstall $(RELEASE_NAME) --namespace $(NAMESPACE)
 
+.PHONY: uninstall-full
 uninstall-full: uninstall
-	kubectl delete crd applications.argoproj.io applicationsets.argoproj.io appprojects.argoproj.io || true
+	kubectl delete crd \
+		applications.argoproj.io \
+		applicationsets.argoproj.io \
+		appprojects.argoproj.io || true
 
 .PHONY: lint
-lint:
+lint: deps
 	helm lint $(CHART_PATH)
 
 .PHONY: template
-template:
-	helm template $(RELEASE_NAME) $(CHART_PATH) -f $(VALUES_FILE)
+template: deps
+	helm template $(RELEASE_NAME) \
+		$(CHART_PATH) \
+		-f $(VALUES_FILE)
+
+## -------------------- Container-Based Tools --------------------
 
 .PHONY: yamllint
 yamllint:
 	@echo "Running yamllint container..."
-	$(CONTAINER_RUNNER) run --rm -v $(WORKDIR):/workdir -w /workdir cytopia/yamllint:latest .
+	$(DOCKER_RUN_BASE) cytopia/yamllint:latest .
 
 .PHONY: yamlfix
 yamlfix:
 	@echo "Running yamlfix container..."
-	$(CONTAINER_RUNNER) run --rm -v $(WORKDIR):/workdir -w /workdir orhun/yamlfix:latest .
+	$(DOCKER_RUN_BASE) otherguy/yamlfix:latest .
 
 .PHONY: helm-docs
 helm-docs:
 	@echo "Running helm-docs container..."
-	$(CONTAINER_RUNNER) run --rm -v $(WORKDIR)/chart:/helm-chart -w /helm-chart quay.io/helmdocs/helm-docs:latest
+	$(DOCKER_RUN_HELM_DOCS) jnorwood/helm-docs:latest .
